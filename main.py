@@ -121,7 +121,7 @@ RANK = {L_SUB: 0, L_PT: 1, L_PART: 1, L_ART: 2}
 
 _MARK = re.compile(
     r"(?<![а-яa-z0-9])(?:"
-    r"(?P<art>статья|статьи|статье|статью|статьей|статей|статьям|статьях|статьями|"
+    r"(?P<art>стат(?:ья|ьи|ье|ью|ьей|ей|ьям|ьях|ьями)(?![а-я])|"
     r"ст\s*\.\s*ст\s*\.|ст\s*\.|ст(?=\s*\d))"
     r"|(?P<abz>абзац\w*|абз\s*\.)"
     r"|(?P<sub>подпункт\w*|подп\s*\.|пп\s*\.|пп(?=\s*[\d\s]))"
@@ -133,6 +133,8 @@ _MARK = re.compile(
 _NUM = re.compile(
     r"\d+(?:\.\d+)*(?:\s?[-–—]\s?\d+(?:\.\d+)*)?(?:\^\d+)?(?:[а-я](?![а-я\d]))?"
 )
+_QOPEN = re.compile(r"[«\"“„(]?")
+_QCLOSE = re.compile(r"[»\"”)]?")
 _LET = re.compile(r"[а-яa-z](?![а-яa-z0-9])")
 _SEP = re.compile(r"\s*(?:,\s*(?:и\s+|или\s+)?|;\s*|и\s+|или\s+|а\s+также\s+)")
 _AMBIG_LET = set("вскоуия")
@@ -142,7 +144,7 @@ _LET_OK_NEXT = re.compile(
 _NUM_BAD_NEXT = re.compile(
     r"\s*(?:года|год|г\.|г\b|%|руб|тыс|млн|дн|лет|человек|месяц|раз|процент|коп)"
 )
-_CONNECT = re.compile(r"[\s,;]*(?:(?:и|в|из|к|или|а\s+также)\s+)?")
+_CONNECT = re.compile(r"[\s,;()]*(?:(?:в|из|к)\s+)?")
 _GAP_BEFORE = re.compile(r"[\s,(:]*")
 
 
@@ -182,13 +184,15 @@ def _parse_values(tl: str, t: str, pos: int, allow_letters: bool):
             first = False
             continue
         if allow_letters and (first or last_letter):
-            lm = _LET.match(tl, p2)
+            q = _QOPEN.match(tl, p2)
+            lm = _LET.match(tl, q.end())
             if lm:
                 ch = lm.group()
-                if ch in _AMBIG_LET and not _LET_OK_NEXT.match(tl, lm.end()):
+                cq = _QCLOSE.match(tl, lm.end())
+                if ch in _AMBIG_LET and not _LET_OK_NEXT.match(tl, cq.end()):
                     break
-                vals.append(t[p2:lm.end()])
-                end = lm.end()
+                vals.append(t[q.end():lm.end()])
+                end = cq.end()
                 p = end
                 last_letter = True
                 first = False
